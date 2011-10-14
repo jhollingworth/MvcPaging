@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Web;
 using System.Web.Mvc;
@@ -33,8 +34,14 @@ namespace MvcPaging
 
 			var sb = new StringBuilder();
 
-			// Previous
-			sb.Append(currentPage > 1 ? GeneratePageLink("&lt;", currentPage - 1) : "<span class=\"disabled\">&lt;</span>");
+		   const string li = "<li class=\"{0}\"><a href=\"{1}\">{2}</a>";
+		   var dotDotDot = string.Format(li, "disabled", "#", "...");
+
+
+         sb.AppendLine("<div class=\"pagination\"><ul>");
+
+		   var previousEnabled = currentPage > 1;
+         sb.AppendFormat(li, "prev " + (previousEnabled ? "" : "disabled"), GetPageUrl(currentPage - 1), "&larr; Previous");
 
 			var start = 1;
 			var end = pageCount;
@@ -62,65 +69,59 @@ namespace MvcPaging
 
 			if (start > 3)
 			{
-				sb.Append(GeneratePageLink("1", 1));
-				sb.Append(GeneratePageLink("2", 2));
-				sb.Append("...");
+				sb.AppendFormat(li, "", GetPageUrl(1), "1");
+            sb.AppendFormat(li, "", GetPageUrl(2), "2");
+			   sb.AppendLine(dotDotDot);
 			}
 			
 			for (var i = start; i <= end; i++)
 			{
 				if (i == currentPage || (currentPage <= 0 && i == 0))
 				{
-					sb.AppendFormat("<span class=\"current\">{0}</span>", i);
+					sb.AppendFormat(li, "active", "#", i);
 				}
 				else
 				{
-					sb.Append(GeneratePageLink(i.ToString(), i));
+               sb.AppendFormat(li, "", GetPageUrl(i), i);
 				}
 			}
 			if (end < (pageCount - 3))
 			{
-				sb.Append("...");
-				sb.Append(GeneratePageLink((pageCount - 1).ToString(), pageCount - 1));
-				sb.Append(GeneratePageLink(pageCount.ToString(), pageCount));
+				sb.AppendLine(dotDotDot);
+            sb.AppendFormat(li, "", GetPageUrl(pageCount - 1), pageCount - 1);
+            sb.AppendFormat(li, "", GetPageUrl(pageCount), pageCount);
 			}
 
-			// Next
-			sb.Append(currentPage < pageCount ? GeneratePageLink("&gt;", (currentPage + 1)) : "<span class=\"disabled\">&gt;</span>");
+		   var isNext = currentPage < pageCount;
+
+		   sb.AppendFormat(li, "next " + (isNext ? "" : "disabled"), GetPageUrl(currentPage + 1), "Next &raquo;");
+		   sb.Append("</ul></div>");
 
 			return new HtmlString(sb.ToString());
 		}
+      
+      private string GetPageUrl(int pageNumber)
+      {
+         var pageLinkValueDictionary = new RouteValueDictionary(linkWithoutPageValuesDictionary) { { "page", pageNumber } };
 
-		private string GeneratePageLink(string linkText, int pageNumber)
-		{
-			var pageLinkValueDictionary = new RouteValueDictionary(linkWithoutPageValuesDictionary) { { "page", pageNumber } };
+         // To be sure we get the right route, ensure the controller and action are specified.
+         var routeDataValues = viewContext.RequestContext.RouteData.Values;
+         if (!pageLinkValueDictionary.ContainsKey("controller") && routeDataValues.ContainsKey("controller"))
+         {
+            pageLinkValueDictionary.Add("controller", routeDataValues["controller"]);
+         }
+         if (!pageLinkValueDictionary.ContainsKey("action") && routeDataValues.ContainsKey("action"))
+         {
+            pageLinkValueDictionary.Add("action", routeDataValues["action"]);
+         }
 
-			// To be sure we get the right route, ensure the controller and action are specified.
-			var routeDataValues = viewContext.RequestContext.RouteData.Values;
-			if (!pageLinkValueDictionary.ContainsKey("controller") && routeDataValues.ContainsKey("controller"))
-			{
-				pageLinkValueDictionary.Add("controller", routeDataValues["controller"]);
-			}
-			if (!pageLinkValueDictionary.ContainsKey("action") && routeDataValues.ContainsKey("action"))
-			{
-				pageLinkValueDictionary.Add("action", routeDataValues["action"]);
-			}
+         // 'Render' virtual path.
+         var virtualPathForArea = RouteTable.Routes.GetVirtualPathForArea(viewContext.RequestContext, pageLinkValueDictionary);
 
-			// 'Render' virtual path.
-			var virtualPathForArea = RouteTable.Routes.GetVirtualPathForArea(viewContext.RequestContext, pageLinkValueDictionary);
+         if (virtualPathForArea == null)
+            return null;
 
-			if (virtualPathForArea == null)
-				return null;
-
-			var stringBuilder = new StringBuilder("<a");
-
-			if (ajaxOptions != null)
-				foreach (var ajaxOption in ajaxOptions.ToUnobtrusiveHtmlAttributes())
-					stringBuilder.AppendFormat(" {0}=\"{1}\"", ajaxOption.Key, ajaxOption.Value);
-
-			stringBuilder.AppendFormat(" href=\"{0}\">{1}</a>", virtualPathForArea.VirtualPath, linkText);
-
-			return stringBuilder.ToString();
-		}
+         return virtualPathForArea.VirtualPath;
+      }
 	}
 }
