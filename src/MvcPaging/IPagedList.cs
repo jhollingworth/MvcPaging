@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
 
 namespace MvcPaging
 {
-	public interface IPagedList<T> : IList<T>
+	public interface IPagedList:IList
 	{
 		int PageCount { get; }
 		int TotalItemCount { get; }
